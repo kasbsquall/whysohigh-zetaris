@@ -294,8 +294,10 @@ export function checksFromTrace(trace: readonly LogEvent[]): CheckView[] {
   const checks: CheckView[] = [];
   let rejectedBefore = false;
   trace.forEach((e, i) => {
-    // Check 4 (eligibility) is shown with the actions it judged, not in this trail.
+    // Check 4 (eligibility) is shown with the actions it judged, not in this trail; the
+    // checker's own Zetaris queries are not verdicts.
     if (e.agent !== "ReconciliationCritic" || e.check === "eligibility") return;
+    if (e.step !== "accepted" && e.step !== "rejected") return;
     const accepted = e.accepted === true;
     const detail = plainReason(String(e.reason));
     const retry = accepted ? undefined : trace.slice(i + 1).find((next) => next.step === "retry");

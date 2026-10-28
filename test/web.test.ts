@@ -153,6 +153,15 @@ describe("page view from the demo runs", () => {
       { accepted: true, title: "The data covers every day", text: "ok", detail: "ok", about: "inputs", attempt: 1, stamp: null, sentBackTo: null },
     ]);
   });
+
+  it("keeps the checker's own Zetaris queries out of its verdicts", () => {
+    const checks = checksFromTrace([
+      { agent: "ReconciliationCritic", step: "sql", sql: "LIST DQ USL lightning.metastore.whysohigh.billing", rowCount: 5 },
+      { agent: "ReconciliationCritic", step: "sql", sql: "SHOW DQ INVALID RECORD weather_covers_bill TABLE x", rowCount: 0 },
+      { agent: "ReconciliationCritic", step: "accepted", check: "freshness", accepted: true, reason: "ok", about: "inputs", attempt: 1 },
+    ]);
+    expect(checks.map((c) => [c.title, c.attempt])).toEqual([["The data covers every day", 1]]);
+  });
 });
 
 describe("the weather strip", () => {
