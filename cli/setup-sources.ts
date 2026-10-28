@@ -16,8 +16,9 @@ if (!householdDbPassword) {
 }
 const secrets: SourceSecrets = {
   // DEMO_KEY works but is rate limited per IP; a free key from api.data.gov avoids HTTP 429.
+  // EIA's API takes the same api.data.gov keys, so it falls back to the OpenEI one.
   openeiApiKey: process.env.OPENEI_API_KEY?.trim() || "DEMO_KEY",
-  eiaApiKey: process.env.EIA_API_KEY?.trim() || "DEMO_KEY",
+  eiaApiKey: process.env.EIA_API_KEY?.trim() || process.env.OPENEI_API_KEY?.trim() || "DEMO_KEY",
   householdDbPassword,
 };
 
