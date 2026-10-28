@@ -118,11 +118,21 @@ export function photoResult(r: PhotoResult): string {
     .join("");
   const verdicts = [...out.rate.verdicts, ...out.change.verdicts, ...(out.words?.verdicts ?? [])];
   const passed = verdicts.filter((v) => v.accepted).length;
-  const title = (v: Verdict): string => (v.check === "closure" && !v.accepted ? "Too much left unexplained" : (CHECKS[v.check] ?? v.check));
+  const title = (v: Verdict): string => {
+    if (v.accepted) return CHECKS[v.check] ?? v.check;
+    if (v.check === "closure") return "Too much left unexplained";
+    return v.check === "bill_recompute" ? "The bill does not match the tariff" : (CHECKS[v.check] ?? v.check);
+  };
+  // The last failed tariff check is what the page reports as a possible billing error.
+  const lastTariff = verdicts.map((v) => v.check).lastIndexOf("bill_recompute");
+  const word = (v: Verdict, i: number): string => {
+    if (v.accepted) return "Accepted";
+    return i === lastTariff && out.rate.possibleBillingErrorUsd !== null ? "Flagged" : "Sent back";
+  };
   const checks = verdicts
     .map((v, i) => {
       const again = verdicts.slice(0, i).some((w) => w.check === v.check) ? ", again" : "";
-      return `<li class="${v.accepted ? "ok" : "no"}"><i class="ph-light ph-${v.accepted ? "check-circle" : "warning-circle"}" aria-hidden="true"></i><span><b>${esc(v.accepted ? "Accepted" : "Sent back")}: ${esc(title(v))}${again}</b> ${esc(plainCheck(plainReason(v.reason)))}</span></li>`;
+      return `<li class="${v.accepted ? "ok" : "no"}"><i class="ph-light ph-${v.accepted ? "check-circle" : "warning-circle"}" aria-hidden="true"></i><span><b>${esc(word(v, i))}: ${esc(title(v))}${again}</b> ${esc(plainCheck(plainReason(v.reason)))}</span></li>`;
     })
     .join("");
   const d = out.change.decomposition;

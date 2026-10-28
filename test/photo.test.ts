@@ -35,6 +35,27 @@ describe("a bill above the published tariff", () => {
     expect(html).toContain('href="tel:+18006867826"');
   });
 
+  it("names the failed tariff check for what it found, and flags it once the second look agrees", () => {
+    const base = overcharged(true);
+    const twice = {
+      ...base,
+      output: {
+        ...base.output,
+        rate: {
+          ...base.output.rate,
+          verdicts: [
+            { check: "bill_recompute", accepted: false, reason: GAP_REASON },
+            { check: "bill_recompute", accepted: false, reason: GAP_REASON },
+          ],
+        },
+      },
+    };
+    const html = photoResult(twice);
+    expect(html).toContain("Sent back: The bill does not match the tariff</b>");
+    expect(html).toContain("Flagged: The bill does not match the tariff, again</b>");
+    expect(html).not.toContain("The bill matches the tariff");
+  });
+
   it("still asks the household to check with AEP Ohio when no complaint was proposed", () => {
     const html = photoResult(overcharged(false));
     expect(html).toContain("It is worth asking AEP Ohio about it.");
