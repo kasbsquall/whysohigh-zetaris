@@ -62,6 +62,23 @@ describe("the live list of Zetaris queries", () => {
     expect(html).not.toContain("redacted");
   });
 
+  it("shows the weather rule holding a bill, with the days NOAA has", () => {
+    const reason = "Zetaris rule weather_covers_bill (weather_days = days) rejects the bill 2026-09-28 to 2026-10-28: NOAA has 25 of 30 days.";
+    const html = statementRow({ agent: "ReconciliationCritic", step: "rejected", check: "freshness", accepted: false, reason }, 11800);
+    expect(html).toContain("The checker");
+    expect(html).toContain("Held");
+    expect(html).toContain("Rule weather_covers_bill holds this bill: NOAA has 25 of 30 days.");
+    expect(html).toContain("zheld");
+  });
+
+  it("shows the weather rule passing the bills it compared", () => {
+    const reason = "Published tariff covers every day of the 2 bills compared, and Zetaris rule weather_covers_bill confirms NOAA weather for each.";
+    const html = statementRow({ agent: "ReconciliationCritic", step: "accepted", check: "freshness", accepted: true, reason }, 0);
+    expect(html).toContain("Accepted");
+    expect(html).toContain("Rule weather_covers_bill passes the 2 bills compared.");
+    expect(html).not.toContain("zheld");
+  });
+
   it("says when a run goes on without a source, and why", () => {
     const html = statementRow({ agent: "RateAnalyst", step: "context_unavailable", source: "eia", reason: EIA_429 }, 0);
     expect(html).toContain("Price check");

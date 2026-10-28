@@ -22,7 +22,7 @@ import {
 
 export type Tab = "first" | "second";
 
-const icon = (name: string, cls = ""): string => `<i class="ph-light ph-${name}${cls ? ` ${cls}` : ""}" aria-hidden="true"></i>`;
+export const icon = (name: string, cls = ""): string => `<i class="ph-light ph-${name}${cls ? ` ${cls}` : ""}" aria-hidden="true"></i>`;
 const NEW_TAB = `<span class="sr-only"> (opens in a new tab)</span>`;
 
 const AGENT_ICONS: Readonly<Record<string, string>> = {

@@ -1,5 +1,6 @@
 // Loads Linda's runs from the server and keeps the page in step with the tab, the
 // memory switch and the address bar (#september, #october, #october-check-4).
+// ?household=marcus loads Marcus's held bill instead (held.ts).
 
 import { BASE, STATIC_DEMO } from "./env.ts";
 import "./styles.css";
@@ -8,6 +9,7 @@ import { pageView, type PageView } from "./model.ts";
 import { failure, friendlyError, panel, parseHash, skeleton, stripHint, tabKey, tabWhen, todayInOhio, type Tab } from "./view.ts";
 import { wirePhoto } from "./photo.ts";
 import { liveQueries } from "./live.ts";
+import { loadHeld } from "./held.ts";
 
 interface State {
   readonly tab: Tab;
@@ -343,5 +345,14 @@ async function load(): Promise<void> {
   await start(false);
 }
 
+/** The switch between the two sample households; the online copy only has Linda's recorded runs. */
+function wireHouseholds(marcus: boolean): void {
+  if (STATIC_DEMO) return;
+  $("households").hidden = false;
+  $(marcus ? "hh-marcus" : "hh-linda").setAttribute("aria-current", "page");
+}
+
+const marcus = new URLSearchParams(location.search).get("household") === "marcus";
 wirePhoto();
-void load();
+wireHouseholds(marcus);
+void (marcus ? loadHeld() : load());

@@ -1,8 +1,10 @@
 // Web server for Why So High: GET /api/demo runs Linda's demo through the same
-// agent pipeline as the CLI, POST /api/run runs one request (input_examples/),
-// POST /api/photo reads a bill photo with BillReader and explains it (GET says
-// whether this copy can), GET /api/events streams each SQL statement of a photo or of the demo
-// to the page while it is read, and the built page is served from web/dist.
+// agent pipeline as the CLI, GET /api/held runs Marcus's latest bill (held by the
+// weather rule in Zetaris while NOAA is behind), POST /api/run runs one request
+// (input_examples/), POST /api/photo reads a bill photo with BillReader and explains it
+// (GET says whether this copy can), GET /api/events streams each SQL statement of a
+// photo, of the demo or of Marcus's bill to the page while it is worked out, and the
+// built page is served from web/dist.
 //   npm run serve            (after npm run web:build)
 // Binds to 127.0.0.1 unless HOST says otherwise. Without .env it runs in SAMPLE_MODE.
 
@@ -13,6 +15,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { readBillPhoto, SAMPLE_PHOTO } from "../src/billPhoto.ts";
 import { SampleMissError } from "../src/cache.ts";
 import { demoPayload, runLindaDemo, type DemoPayload } from "../src/demo.ts";
+import { runHeld, type HeldPayload } from "../src/held.ts";
 import { InputError, parseRunInput } from "../src/input.ts";
 import { onLogEvent } from "../src/log.ts";
 import { runRequest } from "../src/runRequest.ts";
@@ -51,6 +54,23 @@ const loadDemo = (): Promise<DemoPayload> => {
       demoRunning = false;
     });
   return demo;
+};
+
+/** Marcus's bill also runs once per server process; its run id is known before it starts. */
+let held: Promise<HeldPayload> | null = null;
+const heldRuns = new Set<string>();
+
+const loadHeld = (): Promise<HeldPayload> => {
+  if (held) return held;
+  const runtime = createRuntime();
+  heldRuns.add(runtime.logger.runId);
+  held = runHeld(runtime)
+    .catch((error: unknown) => {
+      held = null;
+      throw error;
+    })
+    .finally(() => heldRuns.delete(runtime.logger.runId));
+  return held;
 };
 
 function send(res: ServerResponse, status: number, type: string, body: string): void {
@@ -207,22 +227,27 @@ async function handlePhoto(req: IncomingMessage, res: ServerResponse): Promise<v
 }
 
 // What the page shows of each statement while a run is going; nothing else of the log leaves the server.
-const STREAM_FIELDS = ["ts", "runId", "agent", "step", "source", "zetarisQueryId", "sql", "rowCount", "latencyMs", "failedQueryId", "waitMs", "reason"] as const;
+const STREAM_FIELDS = ["ts", "runId", "agent", "step", "source", "zetarisQueryId", "sql", "rowCount", "latencyMs", "failedQueryId", "waitMs", "check", "accepted", "reason"] as const;
 const STREAM_STEPS: ReadonlySet<string> = new Set(["sql", "sql_retry", "context_unavailable"]);
+// The checker's verdict on the data covering every day is the weather rule's outcome, so it is listed too.
+const streamed = (record: Readonly<Record<string, unknown>>): boolean =>
+  STREAM_STEPS.has(String(record.step)) || ((record.step === "accepted" || record.step === "rejected") && record.check === "freshness");
 const PING_MS = 15_000;
 
 /**
- * GET /api/events?for=photo|demo: every SQL statement that a photo's run, or the demo
- * while it runs, sends to Zetaris from now on, and any source the run has to go on
- * without, as server-sent events.
+ * GET /api/events?for=photo|demo|held: every SQL statement that a photo's run, the demo
+ * or Marcus's bill sends to Zetaris from now on while it runs, and any source the run has
+ * to go on without, as server-sent events.
  */
 function handleEvents(req: IncomingMessage, res: ServerResponse): void {
-  const forDemo = new URL(req.url ?? "/", "http://localhost").searchParams.get("for") === "demo";
-  const wanted = (runId: string): boolean => (forDemo ? demoRunning && !photoRuns.has(runId) : photoRuns.has(runId));
+  const stream = new URL(req.url ?? "/", "http://localhost").searchParams.get("for");
+  // The demo's runs are created inside the demo, so its stream takes every run that is not a photo's or Marcus's.
+  const wanted = (runId: string): boolean =>
+    stream === "demo" ? demoRunning && !photoRuns.has(runId) && !heldRuns.has(runId) : stream === "held" ? heldRuns.has(runId) : photoRuns.has(runId);
   res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
   res.write(": open\n\n");
   const stop = onLogEvent((record) => {
-    if (!STREAM_STEPS.has(String(record.step)) || !wanted(String(record.runId)) || res.writableEnded) return;
+    if (!streamed(record) || !wanted(String(record.runId)) || res.writableEnded) return;
     const picked = Object.fromEntries(STREAM_FIELDS.filter((k) => record[k] !== undefined).map((k) => [k, record[k]]));
     res.write(`data: ${JSON.stringify(picked)}\n\n`);
   });
@@ -281,6 +306,16 @@ const server = createServer((req, res) => {
       (error: unknown) => {
         process.stderr.write(`Demo failed: ${(error as Error).message}\n`);
         send(res, 500, "application/json; charset=utf-8", JSON.stringify({ error: "The agents could not finish this run. Please try again in a minute." }));
+      },
+    );
+    return;
+  }
+  if (path === "/api/held") {
+    loadHeld().then(
+      (payload) => send(res, 200, JSON_TYPE, JSON.stringify(payload)),
+      (error: unknown) => {
+        process.stderr.write(`Held bill failed: ${(error as Error).message}\n`);
+        send(res, 500, JSON_TYPE, JSON.stringify({ error: "The agents could not finish this run. Please try again in a minute." }));
       },
     );
     return;

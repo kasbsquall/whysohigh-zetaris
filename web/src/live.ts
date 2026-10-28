@@ -16,6 +16,8 @@ interface StatementEvent {
   readonly reason?: string;
   readonly waitMs?: number;
   readonly failedQueryId?: string;
+  readonly check?: string;
+  readonly accepted?: boolean;
 }
 
 /** Where each table lives, in the page's words, with its icon. The first match per pattern wins. */
@@ -43,6 +45,15 @@ const HTTP_WORDS: Readonly<Record<string, string>> = { "401": "key refused", "40
 
 /** What a run does without when that source stays unavailable. */
 const LEFT_OUT: Readonly<Record<string, string>> = { eia: "the Ohio average price from EIA" };
+
+/** The checker's verdict on the weather rule in Zetaris, shortened for the list. */
+function ruleVerdict(reason: string | undefined): string {
+  const held = /rule (\w+) \([^)]*\) rejects the bill \S+ to \S+: NOAA has (\d+) of (\d+) days/.exec(reason ?? "");
+  if (held) return `Rule ${held[1]} holds this bill: NOAA has ${held[2]} of ${held[3]} days.`;
+  const passed = /every day of the (\d+) bills compared, and Zetaris rule (\w+) confirms/.exec(reason ?? "");
+  if (passed) return `Rule ${passed[2]} passes the ${passed[1]} bills compared.`;
+  return reason ?? "";
+}
 
 /** "EIA answered HTTP 429, too many requests", or null when the reason names no known API. */
 export function refusal(reason: string | undefined): string | null {
@@ -84,6 +95,10 @@ export function statementRow(e: StatementEvent, atMs: number): string {
     const text = cause ? `${cause}. Zetaris passed that on, ${again}` : `Zetaris turned this statement down once, ${again}`;
     const failed = e.failedQueryId ? ` <span class="zfail">Failed Zetaris query <code translate="no">${esc(e.failedQueryId.slice(0, 8))}</code></span>` : "";
     return `<li class="zrow zretry">${at}<span class="zmain"><b>${esc(who(e.agent))}</b><span class="zline">${esc(text)}${failed}</span></span></li>`;
+  }
+  if (e.step === "accepted" || e.step === "rejected") {
+    const held = e.accepted === false;
+    return `<li class="zrow${held ? " zheld" : ""}">${at}<span class="zmain"><b>${esc(who(e.agent))}</b><span class="zline"><span class="zverb">${held ? "Held" : "Accepted"}</span>${esc(ruleVerdict(e.reason))}</span></span></li>`;
   }
   if (e.step === "context_unavailable") {
     const cause = refusal(e.reason);
@@ -151,7 +166,7 @@ export function liveQueries(root: HTMLElement, options: LiveOptions): LiveQuerie
         count += 1;
         rows += e.rowCount ?? 0;
         busyMs += e.latencyMs ?? 0;
-        total.textContent = `${count} ${count === 1 ? "query" : "queries"}, ${rows.toLocaleString("en-US")} rows, ${elapsed(busyMs)} inside Zetaris`;
+        total.textContent = `${count} ${count === 1 ? "query" : "queries"}, ${rows.toLocaleString("en-US")} ${rows === 1 ? "row" : "rows"}, ${elapsed(busyMs)} inside Zetaris`;
       };
     },
     stop(): void {

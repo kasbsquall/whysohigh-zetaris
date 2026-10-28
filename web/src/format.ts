@@ -64,6 +64,10 @@ export const plainCheck = (reason: string): string =>
       "The price list and the daily weather records cover every day of the $1 bills compared, and the data rule kept in Zetaris agrees.",
     )
     .replace(
+      /^Zetaris rule (\w+) \([^)]*\) rejects the bill \S+ to \S+: NOAA has (\d+) of (\d+) days\.$/,
+      "The daily weather records cover $2 of this bill's $3 days so far, so the data rule $1 kept in Zetaris holds the split.",
+    )
+    .replace(
       /^The Ohio-average model(?:, calibrated by [^,]+,)? has ([\d.]+) kWh per day of base use and slopes within (\d+) times the Ohio ones\.$/,
       "The estimate is believable: your home uses about $1 kWh a day for things that do not depend on the weather, and reacts to heat and cold no more than $2 times as much as a typical Ohio home.",
     )

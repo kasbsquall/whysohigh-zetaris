@@ -81,6 +81,13 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .sample{display:inline-flex; align-items:center; gap:6px; font-size:15px; font-weight:500; color:var(--on-service-2)}
 .btn.on-dark{background:oklch(97.5% .008 230 / .1); color:var(--on-service); border-color:oklch(97.5% .008 230 / .35); min-height:40px; padding:8px 14px; font-size:16px}
 .btn.on-dark:hover{background:oklch(97.5% .008 230 / .18)}
+.hh-switch{display:inline-flex; gap:2px; padding:2px; border-radius:var(--radius); background:oklch(97.5% .008 230 / .08)}
+.hh-switch[hidden]{display:none}
+.hh-switch a{display:inline-flex; align-items:center; min-height:36px; padding:0 12px; border-radius:2px; color:var(--on-service-2); text-decoration:none; font:500 15px/1 var(--font-display); transition:background-color 160ms var(--ease-out), color 160ms var(--ease-out)}
+.hh-switch a:hover{color:var(--on-service); background:oklch(97.5% .008 230 / .12)}
+.hh-switch a:active{background:oklch(97.5% .008 230 / .18)}
+.hh-switch a[aria-current="page"]{background:var(--bg); color:var(--service-deep); font-weight:700}
+.hh-switch a:focus-visible{outline-color:var(--on-service); outline-offset:1px}
 .btn:focus-visible{outline:2px solid currentColor; outline-offset:2px}
 .photo-dialog{width:min(640px, calc(100vw - 32px))}
 .photo-dialog > p{margin-top:var(--s3); max-width:60ch}
@@ -127,6 +134,8 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .zid{color:var(--ink-2)}
 .zretry b{color:var(--reject-ink)}
 .zfail{font-size:14px; color:var(--ink-2)}
+.zheld b, .zheld .zverb{color:var(--reject-ink)}
+.zheld .zverb{font-weight:600}
 /* On the page: open while the demo is worked out, then folded into one line under the explanation. */
 .zlive-page{margin-top:var(--s5); margin-bottom:var(--s5)}
 .zlive-page summary{position:relative; display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s1) var(--s3); cursor:pointer; list-style:none; min-height:44px; padding:var(--s2) 36px var(--s2) 0}
@@ -139,6 +148,7 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .zlive-page details[open] .zchev{transform:rotate(180deg)}
 .zlive-page summary:hover .zlive-title{color:var(--link)}
 .tabs{display:flex; gap:var(--s2); margin-top:var(--s1)}
+.tabs[hidden]{display:none}
 .tab{appearance:none; background:none; border:0; cursor:pointer; color:var(--on-service-2);
   font:500 17px/1 var(--font-display); padding:14px 14px 15px; min-height:48px; display:inline-flex; gap:8px; align-items:center;
   border-radius:var(--radius) var(--radius) 0 0; transition:background-color 160ms var(--ease-out), color 160ms var(--ease-out)}
@@ -327,6 +337,23 @@ tr.billrow .cause > .ph-light{color:var(--ink)}
 .compare tr.diff{background:var(--band)}
 .compare tr.diff th .ph-light{color:var(--service); margin-right:8px}
 .compare th[scope=row]{font-weight:500; font-family:var(--font-text)}
+
+/* ---------- Held bill (Marcus) ---------- */
+.lead.held-lead{grid-template-columns:minmax(0,1fr) 340px}
+.big.held{color:var(--reject-ink); align-items:baseline; flex-wrap:wrap; gap:0 var(--s3)}
+.big.held .of{font-size:44px; font-weight:700; letter-spacing:-0.02em; color:var(--ink)}
+.held-why{font-size:20px; line-height:1.5; max-width:40ch}
+.held-rule{display:flex; gap:8px; align-items:flex-start; color:var(--ink-2); font-size:16px; max-width:60ch}
+.held-rule .ph-light{color:var(--service); font-size:21px; margin-top:1px; flex:none}
+.held-checks-sec{margin-top:var(--s8)}
+.held-checks{list-style:none; margin:0; padding:0; border-top:1px solid var(--line); max-width:880px}
+.held-checks li{display:grid; grid-template-columns:24px minmax(0,1fr); gap:var(--s2); padding:var(--s3) 0; border-bottom:1px solid var(--line); font-size:16px; color:var(--ink-2)}
+.held-checks li b{color:var(--ink); font-family:var(--font-display); font-weight:700}
+.held-checks li .ph-light{font-size:21px; margin-top:1px}
+.held-checks li.ok .ph-light{color:var(--service)}
+.held-checks li.no{color:var(--ink)}
+.held-checks li.no .ph-light, .held-checks li.no b{color:var(--reject-ink)}
+.held-checks li.na .ph-light{color:var(--ink-2)}
 
 /* ---------- Checks ---------- */
 .agent{display:flex; gap:8px; align-items:flex-start; color:var(--ink-2); font-size:16px; margin-bottom:var(--s4)}
@@ -529,7 +556,7 @@ ol.words b{color:var(--ink); font-family:var(--font-display)}
   .work{grid-template-columns:1fr; gap:var(--s8)}
 }
 @media (max-width: 860px){
-  .lead{grid-template-columns:1fr}
+  .lead, .lead.held-lead{grid-template-columns:1fr}
   .lead-main, .bills-wrap, .bill-thumb, .confidence{grid-column:1; grid-row:auto}
   .bills-wrap{order:2}
   .bill-thumb{order:3}
@@ -556,6 +583,9 @@ ol.words b{color:var(--ink); font-family:var(--font-display)}
   .next-up{font-size:18px}
   .big{font-size:72px}
   .big .dir{font-size:36px}
+  .big.held .of{font-size:30px}
+  .held-why{font-size:18px}
+  .held-checks-sec{margin-top:var(--s7)}
   .bills{gap:var(--s3)}
   .bill-line .amt{font-size:21px}
   .why{font-size:22px}
