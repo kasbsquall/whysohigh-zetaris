@@ -40,6 +40,30 @@ async function readError(response: Response): Promise<string> {
   }
 }
 
+/** One statement as Zetaris keeps it in its query history (literal values masked by Zetaris). */
+export interface HistoryEntry {
+  readonly id: string;
+  readonly sql: string;
+  readonly status: string;
+  readonly time: string;
+}
+
+const isEntry = (value: unknown): value is HistoryEntry =>
+  typeof value === "object" &&
+  value !== null &&
+  ["id", "sql", "status", "time"].every((key) => typeof (value as Record<string, unknown>)[key] === "string");
+
+/** The well-formed history entries whose id starts with idOrPrefix; Zetaris answers one entry or a list. */
+export function parseHistory(body: unknown, idOrPrefix: string): readonly HistoryEntry[] {
+  const prefix = idOrPrefix.toLowerCase();
+  return (Array.isArray(body) ? body : [body])
+    .filter(isEntry)
+    .filter((entry) => entry.id.toLowerCase().startsWith(prefix))
+    .map(({ id, sql, status, time }) => ({ id, sql, status, time }));
+}
+
+const FULL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Cells come back as strings today; numbers and nulls are coerced so callers can rely on Row. */
 export function normalizeRows(data: unknown): readonly Row[] {
   if (!Array.isArray(data)) return [];
@@ -105,7 +129,27 @@ export function createZetarisRest(config: Config["zetaris"], fetchImpl: typeof f
     };
   }
 
-  return { run, query };
+  const getHistory = (url: string, bearer: string): Promise<Response> =>
+    fetchImpl(url, {
+      headers: { Authorization: `Bearer ${bearer}`, "X-Org-ID": config.orgId, "X-Request-ID": randomUUID() },
+      signal: AbortSignal.timeout(30_000),
+    });
+
+  /** Zetaris's own record of a query id; a short id (the page shows 8 characters) is looked up in the whole history. */
+  async function history(idOrPrefix: string): Promise<readonly HistoryEntry[]> {
+    const url = `${config.apiUrl}/sql-editor/sqls/history${FULL_ID.test(idOrPrefix) ? `/${idOrPrefix.toLowerCase()}` : ""}`;
+    token ??= await login();
+    let response = await getHistory(url, token);
+    if (response.status === 401) {
+      token = await login();
+      response = await getHistory(url, token);
+    }
+    if (response.status === 404) return [];
+    if (!response.ok) throw new ZetarisError(`Zetaris HTTP ${response.status}: ${await readError(response)}`);
+    return parseHistory(await response.json(), idOrPrefix);
+  }
+
+  return { run, query, history };
 }
 
 export interface Answer {

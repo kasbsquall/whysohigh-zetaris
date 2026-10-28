@@ -6,7 +6,7 @@ import { fileCache } from "../src/cache.ts";
 import { loadConfig } from "../src/config.ts";
 import { callNightshift, createLlmClient, splitReasoning } from "../src/llm/nightshift.ts";
 import type { LogEvent, RunLogger } from "../src/log.ts";
-import { createSqlClient, createZetarisRest, redactUrlKeys, ZetarisError } from "../src/zetaris/client.ts";
+import { createSqlClient, createZetarisRest, parseHistory, redactUrlKeys, ZetarisError } from "../src/zetaris/client.ts";
 
 interface Captured {
   readonly url: string;
@@ -100,6 +100,38 @@ describe("Zetaris REST", () => {
   it("surfaces the Zetaris error message", async () => {
     const rest = createZetarisRest(live.zetaris, fakeFetch([json({ idToken: "x" }), json({ msg: "table not found" }, 400)], []));
     await expect(rest.run("SELECT * FROM nope")).rejects.toThrow(ZetarisError);
+  });
+
+  const ENTRY = { id: "71deceb9-dc6a-42f5-8072-4e9dc8ea7209", sql: "INSERT INTO household_pg.decisions VALUES (********)", status: "Success", time: "2026-10-28T19:06:46.570262Z" };
+
+  it("reads one query id from Zetaris's query history", async () => {
+    const calls: Captured[] = [];
+    const rest = createZetarisRest(live.zetaris, fakeFetch([json({ idToken: "x" }), json(ENTRY)], calls));
+    expect(await rest.history(ENTRY.id)).toEqual([ENTRY]);
+    expect(calls[1].url).toBe(`http://localhost:8888/api/v1.0/sql-editor/sqls/history/${ENTRY.id}`);
+    expect((calls[1].init.headers as Record<string, string>)["X-Org-ID"]).toBe("1");
+  });
+
+  it("finds a short id, as the page prints it, in the whole history", async () => {
+    const calls: Captured[] = [];
+    const other = { ...ENTRY, id: "d48eddc4-2340-4c06-ac73-3848a895e259" };
+    const rest = createZetarisRest(live.zetaris, fakeFetch([json({ idToken: "x" }), json([other, ENTRY, { id: 7 }])], calls));
+    expect(await rest.history("71DECEB9")).toEqual([ENTRY]);
+    expect(calls[1].url).toBe("http://localhost:8888/api/v1.0/sql-editor/sqls/history");
+  });
+
+  it("returns nothing for an id Zetaris never ran", async () => {
+    const rest = createZetarisRest(live.zetaris, fakeFetch([json({ idToken: "x" }), json(null)], []));
+    expect(await rest.history(ENTRY.id)).toEqual([]);
+  });
+});
+
+describe("parseHistory", () => {
+  it("keeps well-formed entries that start with the id asked for", () => {
+    const entry = { id: "abcdef12-0000-4000-8000-000000000000", sql: "SELECT 1", status: "Failed", time: "2026-10-28T19:00:00Z" };
+    expect(parseHistory([entry, { id: "abcdef99", sql: 1 }, "x"], "abcdef")).toEqual([entry]);
+    expect(parseHistory(entry, "abcdef12-0000-4000-8000-000000000000")).toEqual([entry]);
+    expect(parseHistory({ msg: "not found" }, "abcdef")).toEqual([]);
   });
 });
 

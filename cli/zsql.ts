@@ -5,8 +5,11 @@
 //   npm run zsql -- "SHOW LIGHTNING DATABASES"
 //   npm run zsql -- --file zetaris/billing_usl.sql --dry-run
 //   npm run zsql -- --file zetaris/billing_usl.sql [--limit 50]
+//   npm run zsql -- --history d48eddc4 71deceb9-dc6a-42f5-8072-4e9dc8ea7209
 // Statements that drop, remove, delete, truncate, grant or revoke need --allow-destructive.
 // Every statement is also logged to logs/<run id>.jsonl, like the agents' own.
+// --history prints what Zetaris itself recorded for each query id (status, time, SQL),
+// from a full id or the first 8 characters that the page and this command print.
 
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -23,10 +26,40 @@ const { values, positionals } = parseArgs({
     limit: { type: "string", default: "50" },
     "dry-run": { type: "boolean", default: false },
     "allow-destructive": { type: "boolean", default: false },
+    history: { type: "boolean", default: false },
   },
 });
 
-const usage = 'Usage: npm run zsql -- "<statement>"   or   npm run zsql -- --file <path.sql> [--dry-run] [--limit 50]\n';
+const usage =
+  'Usage: npm run zsql -- "<statement>"   or   npm run zsql -- --file <path.sql> [--dry-run] [--limit 50]\n' +
+  "       npm run zsql -- --history <query id, or its first 8 characters> [...]\n";
+
+const QUERY_ID = /^[0-9a-f]{8}(?:-[0-9a-f-]{1,28})?$/i;
+const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const when = (time: string): string =>
+  `${time.slice(0, 19).replace("T", " ")} UTC (${new Date(time).toLocaleTimeString("en-GB", { hour12: false, timeZone: zone })} ${zone})`;
+
+if (values.history) {
+  if (positionals.length === 0 || values.file || !positionals.every((id) => QUERY_ID.test(id))) {
+    process.stderr.write(usage);
+    process.exit(2);
+  }
+  loadDotEnv();
+  const zetaris = createZetarisRest(loadConfig({ ...process.env, SAMPLE_MODE: "false" }).zetaris);
+  process.stdout.write("-- What Zetaris recorded in its query history for each id\n\n");
+  try {
+    for (const id of positionals) {
+      const found = await zetaris.history(id);
+      if (found.length === 0) process.stdout.write(`${id}  not in Zetaris's query history\n\n`);
+      for (const entry of found) process.stdout.write(`${entry.id}  ${entry.status}  ${when(entry.time)}\n  ${entry.sql.replace(/\n/g, "\n  ")}\n\n`);
+    }
+  } catch (error: unknown) {
+    process.stdout.write(`   ${(error as Error).message}\n`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
+
 const limit = Number(values.limit);
 if ((positionals.length === 0) === !values.file || !Number.isInteger(limit) || limit < 1) {
   process.stderr.write(usage);

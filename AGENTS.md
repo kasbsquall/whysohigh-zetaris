@@ -17,6 +17,9 @@ These rules adapt the `AGENTS.md` of [zetaris/getting-started](https://github.co
   `--dry-run` to list its statements without running them.
 - Each statement prints its columns and rows, how long it took, and the query id Zetaris
   keeps in its query history. It is also logged to `logs/`.
+- `npm run zsql -- --history <id> [<id> ...]` prints what Zetaris itself recorded for those
+  ids: status, time and SQL. A full id or its first 8 characters both work. When you report
+  what you ran, list the ids so anyone can check them there.
 - Before your task, confirm the connection with `SELECT 1` and `SHOW LIGHTNING DATABASES`, and
   report a short pass or fail.
 
