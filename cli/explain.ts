@@ -1,6 +1,7 @@
 // Programmatic entry point.
 //   npm run explain -- --input input_examples/example_1.json        (a request: household, bill fields, earlier bills)
 //   npm run explain -- --bill samples/linda-2026-09.png --household samples/linda.json --out out/
+//   npm run explain -- --bill samples/marcus-2026-10.json --household samples/marcus.json   (the printed fields, no photo)
 // Household memory lives in .memory/<household id> unless --memory points elsewhere; --no-memory runs without it.
 // A --input request runs without memory unless --memory is given.
 
@@ -8,6 +9,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { parseHouseholdFacts } from "../src/actions/programs.ts";
+import type { Bill } from "../src/agents/billReader.ts";
 import { InputError, parseRunInput } from "../src/input.ts";
 import { explain, ORCHESTRATOR } from "../src/pipeline.ts";
 import { runRequest } from "../src/runRequest.ts";
@@ -27,7 +29,7 @@ const { values } = parseArgs({
 if (Boolean(values.bill) === Boolean(values.input)) {
   process.stderr.write(
     "Usage: npm run explain -- --input <request.json> [--out <dir>]\n" +
-      "       npm run explain -- --bill <image> [--household <json>] [--out <dir>]\n",
+      "       npm run explain -- --bill <image or fields.json> [--household <json>] [--out <dir>]\n",
   );
   process.exit(2);
 }
@@ -61,7 +63,12 @@ if (values.input) {
     const household = values.household ? (JSON.parse(readFileSync(values.household, "utf8")) as { id?: string }) : null;
     const householdId = household?.id ?? null;
     const memoryDir = values["no-memory"] || !householdId ? null : (values.memory ?? join(".memory", householdId));
-    const explanation = await explain(runtime, values.bill as string, { householdId, memoryDir, facts: household ? parseHouseholdFacts(household) : null });
+    // A .json bill holds the printed fields, checked like a request's bill.fields; anything else is a photo for BillReader.
+    const billPath = values.bill as string;
+    const source = billPath.endsWith(".json")
+      ? (parseRunInput({ bill: { fields: JSON.parse(readFileSync(billPath, "utf8")) as unknown } }).bill as { fields: Bill }).fields
+      : billPath;
+    const explanation = await explain(runtime, source, { householdId, memoryDir, facts: household ? parseHouseholdFacts(household) : null });
 
     const result = { runId: logger.runId, sampleMode: config.sampleMode, household, memoryDir, ...explanation };
     writeFileSync(outFile, `${JSON.stringify(result, null, 2)}\n`, "utf8");

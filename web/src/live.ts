@@ -39,9 +39,16 @@ const elapsed = (ms: number): string => (ms < 1000 ? `${Math.round(ms)} ms` : `$
 // The run itself writes the decision back; the other names come from the agents.
 const who = (agent: string): string => (agent === "Orchestrator" ? "Saving the result" : agentName(agent));
 
+const chip = (label: string, iconName: string): string =>
+  `<span class="zsrc"><i class="ph-light ph-${iconName}" aria-hidden="true"></i>${esc(label)}</span>`;
+
+// A data-quality statement names the layer too, but what it asks is the rule's verdict.
+const QUALITY = /^\s*(?:SHOW|LIST|RUN)\s+DQ\b/i;
+
 function sourcesOf(sql: string): string {
+  if (QUALITY.test(sql)) return `<span class="zverb">Checks</span>${chip("Data-quality rule in Zetaris", "list-checks")}`;
   const chips = SOURCES.filter(([pattern]) => pattern.test(sql))
-    .map(([, label, iconName]) => `<span class="zsrc"><i class="ph-light ph-${iconName}" aria-hidden="true"></i>${esc(label)}</span>`)
+    .map(([, label, iconName]) => chip(label, iconName))
     .join("");
   const verb = /^\s*INSERT\b/i.test(sql) ? "Writes to" : "Reads";
   return `<span class="zverb">${verb}</span>${chips || `<span class="zsrc">${esc(sql.slice(0, 40))}</span>`}`;

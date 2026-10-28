@@ -14,11 +14,19 @@ export interface BillWeather {
   /** Cooling and heating degree days, base 65 F, from daily (TMAX + TMIN) / 2. */
   readonly cdd: number;
   readonly hdd: number;
+  /** Zetaris's data-quality verdict on this bill's weather, when the bill came through the semantic layer (quality.ts). */
+  readonly weatherRule?: WeatherRuleVerdict;
+}
+
+export interface WeatherRuleVerdict {
+  readonly name: string;
+  readonly expression: string;
+  readonly passed: boolean;
 }
 
 const ID = /^[a-z0-9_-]+$/;
 
-function assertId(householdId: string): void {
+export function assertId(householdId: string): void {
   if (!ID.test(householdId)) throw new Error(`Invalid household id "${householdId}".`);
 }
 

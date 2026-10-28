@@ -1,0 +1,10 @@
+{
+  "period_start": "09/28/2026",
+  "period_end": "10/28/2026",
+  "days": 30,
+  "kwh": 671,
+  "total_usd": 131.36,
+  "prev_kwh": 1041,
+  "prev_days": 32,
+  "prev_total_usd": 193.43
+}

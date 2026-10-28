@@ -1,0 +1,12 @@
+{
+  "_note": "Illustrative household. Synthetic, not a real person. The latest bill closed on 28 Oct 2026, before NOAA published its last days.",
+  "id": "marcus",
+  "name": "Marcus",
+  "city": "Columbus, OH",
+  "utility": "AEP Ohio",
+  "householdSize": 2,
+  "annualIncomeUsd": 61000,
+  "electricHeat": false,
+  "oldestMemberAge": 46,
+  "disconnectionNotice": false
+}

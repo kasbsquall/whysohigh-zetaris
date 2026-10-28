@@ -35,6 +35,17 @@ describe("the live list of Zetaris queries", () => {
     expect(html).not.toContain("<b>'");
   });
 
+  it("calls a data-quality statement a check of the rule in Zetaris", () => {
+    const html = statementRow(
+      { agent: "ReconciliationCritic", step: "sql", source: "live", sql: "SHOW DQ INVALID RECORD weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather", rowCount: 1, latencyMs: 3271 },
+      0,
+    );
+    expect(html).toContain("The checker");
+    expect(html).toContain("Checks");
+    expect(html).toContain("Data-quality rule in Zetaris");
+    expect(html).not.toContain("Semantic layer in Zetaris");
+  });
+
   it("shows a retry as a statement Zetaris turned down once", () => {
     expect(statementRow({ agent: "WeatherAnalyst", step: "sql_retry", reason: "HTTP 400" }, 0)).toContain("turned this statement down once");
   });

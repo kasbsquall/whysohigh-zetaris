@@ -76,7 +76,11 @@ export function checkWeatherModel(model: WeatherModel): Verdict {
   return { check: "weather_model", accepted, reason, gapUsd: 0 };
 }
 
-/** Check 5: the tariff and the weather data must cover every day of both bills. */
+/**
+ * Check 5: the tariff and the weather data must cover every day of both bills.
+ * When the bills came through the semantic layer, Zetaris's rule weather_covers_bill
+ * gives the weather verdict and the count here must agree with it.
+ */
 export function checkFreshness(tariffs: readonly Tariff[], bills: readonly BillWeather[]): Verdict {
   const problems: string[] = [];
   for (const b of bills) {
@@ -85,14 +89,21 @@ export function checkFreshness(tariffs: readonly Tariff[], bills: readonly BillW
     } catch (error: unknown) {
       problems.push(`${(error as Error).message.replace(/\.$/, "")} (bill ${b.periodStart} to ${b.periodEnd})`);
     }
-    if (b.weatherDays !== b.days) {
-      problems.push(`NOAA has ${b.weatherDays} of ${b.days} days for the bill ${b.periodStart} to ${b.periodEnd}`);
+    const rule = b.weatherRule;
+    if (rule && !rule.passed) {
+      problems.push(`Zetaris rule ${rule.name} (${rule.expression}) rejects the bill ${b.periodStart} to ${b.periodEnd}: NOAA has ${b.weatherDays} of ${b.days} days`);
+    } else if (b.weatherDays !== b.days) {
+      // Fail closed when the count and the rule disagree.
+      problems.push(`NOAA has ${b.weatherDays} of ${b.days} days for the bill ${b.periodStart} to ${b.periodEnd}${rule ? `, although Zetaris rule ${rule.name} passed it` : ""}`);
     }
   }
   const accepted = problems.length === 0;
-  const reason = accepted
-    ? `Published tariff and NOAA weather cover every day of the ${bills.length} bills compared.`
-    : `${problems.join("; ")}.`;
+  const rule = bills.length > 0 && bills.every((b) => b.weatherRule) ? bills[0].weatherRule : undefined;
+  const reason = !accepted
+    ? `${problems.join("; ")}.`
+    : rule
+      ? `Published tariff covers every day of the ${bills.length} bills compared, and Zetaris rule ${rule.name} confirms NOAA weather for each.`
+      : `Published tariff and NOAA weather cover every day of the ${bills.length} bills compared.`;
   return { check: "freshness", accepted, reason, gapUsd: 0 };
 }
 

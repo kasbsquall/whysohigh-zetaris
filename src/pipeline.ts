@@ -28,7 +28,8 @@ import {
 import type { Runtime } from "./runtime.ts";
 import type { BillPeriod, Tariff } from "./tariff/tariff.ts";
 import { historyForBill, noaaSnapshot } from "./input.ts";
-import { billWeather, billWeatherFor, type BillWeather, type HistoryBill } from "./zetaris/queries.ts";
+import { billWeatherFor, type BillWeather, type HistoryBill } from "./zetaris/queries.ts";
+import { householdBills } from "./zetaris/quality.ts";
 import { recordDecision, type RecordedDecision } from "./zetaris/decisions.ts";
 import { ohioPrice, type StatePrice } from "./zetaris/statePrice.ts";
 import { componentUsd } from "./agents/usageAnalyst.ts";
@@ -173,7 +174,7 @@ async function historyOf(runtime: Runtime, bill: Bill, options: ExplainOptions):
   if (options.earlierBills) {
     return billWeatherFor(runtime.sql, "WeatherAnalyst", historyForBill(bill, options.earlierBills), noaaSnapshot);
   }
-  return options.householdId ? billWeather(runtime.sql, "WeatherAnalyst", options.householdId) : [];
+  return options.householdId ? householdBills(runtime.sql, "WeatherAnalyst", "ReconciliationCritic", options.householdId) : [];
 }
 
 /** Nemotron's plain-language sentences for the accepted split, checked number by number. */

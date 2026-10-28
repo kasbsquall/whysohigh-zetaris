@@ -60,6 +60,10 @@ export const plainCheck = (reason: string): string =>
     .replace(/^Published tariff gives (\S+), billed (\S+) \(([^)]+) apart\)\.$/, "AEP Ohio's price list gives $1 for this use, and the bill says $2 ($3 apart).")
     .replace(/^Published tariff and NOAA weather cover every day of the (\d+) bills compared\.$/, "The price list and the daily weather records cover every day of the $1 bills compared.")
     .replace(
+      /^Published tariff covers every day of the (\d+) bills compared, and Zetaris rule \w+ confirms NOAA weather for each\.$/,
+      "The price list and the daily weather records cover every day of the $1 bills compared, and the data rule kept in Zetaris agrees.",
+    )
+    .replace(
       /^The Ohio-average model(?:, calibrated by [^,]+,)? has ([\d.]+) kWh per day of base use and slopes within (\d+) times the Ohio ones\.$/,
       "The estimate is believable: your home uses about $1 kWh a day for things that do not depend on the weather, and reacts to heat and cold no more than $2 times as much as a typical Ohio home.",
     )
