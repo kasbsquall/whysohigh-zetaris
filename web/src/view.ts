@@ -553,10 +553,10 @@ function noteForm(nextWithNote: string | null): string {
     </form>`;
 }
 
-function stepLinks(step: ActionView["nextStep"]): string {
+export function stepLinks(step: ActionView["nextStep"], urlLabel = "Apply or read more"): string {
   if (!step.url && !step.phone) return "";
   return `<div class="links">
-      ${step.url ? `<a class="btn solid" href="${esc(step.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow-square-out")}Apply or read more${NEW_TAB}</a>` : ""}
+      ${step.url ? `<a class="btn solid" href="${esc(step.url)}" target="_blank" rel="noopener noreferrer">${icon("arrow-square-out")}${esc(urlLabel)}${NEW_TAB}</a>` : ""}
       ${step.phone ? `<a class="btn line" href="${telHref(step.phone)}">${icon("phone")}${esc(step.phone)}</a>` : ""}
     </div>`;
 }

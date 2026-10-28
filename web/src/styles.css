@@ -91,7 +91,7 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .btn:focus-visible{outline:2px solid currentColor; outline-offset:2px}
 .photo-dialog{width:min(640px, calc(100vw - 32px))}
 .photo-dialog > p{margin-top:var(--s3); max-width:60ch}
-.photo-pick{margin-top:var(--s4); position:relative}
+.photo-pick{position:relative}
 .photo-pick[hidden], #photoSample[hidden]{display:none}
 .photo-pick:focus-within{outline:2px solid var(--service); outline-offset:2px}
 .photo-status{margin-top:var(--s3); color:var(--ink-2); min-height:1.4em}
@@ -102,6 +102,15 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .photo-split{list-style:none; padding:0; margin-top:var(--s3); display:grid; gap:var(--s1)}
 .photo-split li{display:flex; justify-content:space-between; gap:var(--s3); border-bottom:1px solid var(--line); padding-bottom:var(--s1)}
 .photo-msg{margin-top:var(--s3)}
+.bill-gap{margin-top:var(--s4); padding:var(--s4); border:1px solid oklch(55% .19 25 / .55); border-radius:var(--radius); background:var(--reject-bg)}
+.bill-gap .photo-h{margin-top:0; line-height:1.25}
+.bill-gap .photo-h .num{color:var(--reject-ink); font-size:32px; letter-spacing:-0.02em}
+.gap-rows{display:grid; gap:var(--s1); margin:var(--s3) 0}
+.gap-rows div{display:flex; justify-content:space-between; align-items:baseline; gap:var(--s3); border-bottom:1px solid var(--line); padding-bottom:var(--s1)}
+.gap-rows dt{color:var(--ink-2)}
+.gap-rows dd{margin:0; font-weight:700}
+.gap-step{margin-top:var(--s2); color:var(--ink-2)}
+.bill-gap .links{margin-top:var(--s3)}
 .photo-actions{display:flex; flex-wrap:wrap; gap:var(--s2); align-items:center; margin-top:var(--s3)}
 .photo-sample{margin-top:var(--s4); display:grid; grid-template-columns:120px minmax(0,1fr); gap:var(--s3); align-items:center}
 .photo-sample img{width:120px; height:auto; border:1px solid var(--line); border-radius:var(--radius)}

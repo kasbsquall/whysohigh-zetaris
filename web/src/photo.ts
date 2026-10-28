@@ -1,9 +1,11 @@
 // "Read your own bill": the photo is shrunk in the browser, sent to POST /api/photo,
 // read by BillReader (Nemotron vision) and explained by the same agents as Linda's bills.
 
+import { PROGRAMS } from "../../src/actions/programs.ts";
 import { BASE, STATIC_DEMO } from "./env.ts";
-import { esc, usd } from "./format.ts";
+import { esc, plainCheck, plainReason, usd } from "./format.ts";
 import { liveQueries } from "./live.ts";
+import { stepLinks } from "./view.ts";
 
 const MAX_SIDE = 1600;
 const QUALITY = 0.85;
@@ -32,7 +34,26 @@ interface PhotoResult {
     readonly rate: { readonly verdicts: readonly Verdict[]; readonly possibleBillingErrorUsd: number | null };
     readonly change: { readonly verdicts: readonly Verdict[]; readonly skipped: string | null; readonly decomposition: { readonly changeUsd: number; readonly components: readonly Component[] } | null };
     readonly words: { readonly text: string; readonly source: string; readonly verdicts: readonly Verdict[] } | null;
+    readonly actions?: { readonly actions: readonly { readonly id: string; readonly why: string; readonly status: string }[] };
   };
+}
+
+/** A bill above the published tariff: what it says against what the tariff gives, and what to do. */
+function billGap(bill: { readonly kwh: number; readonly totalUsd: number }, gapUsd: number, complaint: { readonly why: string } | undefined): string {
+  if (gapUsd <= 0) {
+    return `<p class="photo-msg">AEP Ohio's published tariff gives a total ${usd(Math.abs(gapUsd))} higher than this bill for the same kWh. It is worth asking AEP Ohio about it.</p>`;
+  }
+  const step = PROGRAMS.puco_complaint.nextStep;
+  const tariffUsd = Math.round((bill.totalUsd - gapUsd) * 100) / 100;
+  return `
+    <section class="bill-gap" aria-labelledby="gapH">
+      <h3 class="photo-h" id="gapH">This bill is <span class="num">${usd(gapUsd)}</span> above AEP Ohio's published tariff</h3>
+      <dl class="gap-rows">
+        <div><dt>The bill says</dt><dd class="num">${usd(bill.totalUsd)}</dd></div>
+        <div><dt>AEP Ohio's published tariff, same ${bill.kwh.toLocaleString("en-US")} kWh</dt><dd class="num">${usd(tariffUsd)}</dd></div>
+      </dl>
+      ${complaint ? `<p>${esc(plainReason(complaint.why))}</p><p class="gap-step">${esc(step.text)}</p>${stepLinks(step, "File a complaint online")}` : "<p>It is worth asking AEP Ohio about it.</p>"}
+    </section>`;
 }
 
 const LABELS: Readonly<Record<string, string>> = {
@@ -101,7 +122,7 @@ export function photoResult(r: PhotoResult): string {
   const checks = verdicts
     .map((v, i) => {
       const again = verdicts.slice(0, i).some((w) => w.check === v.check) ? ", again" : "";
-      return `<li class="${v.accepted ? "ok" : "no"}"><i class="ph-light ph-${v.accepted ? "check-circle" : "warning-circle"}" aria-hidden="true"></i><span><b>${esc(v.accepted ? "Accepted" : "Sent back")}: ${esc(title(v))}${again}</b> ${esc(v.reason)}</span></li>`;
+      return `<li class="${v.accepted ? "ok" : "no"}"><i class="ph-light ph-${v.accepted ? "check-circle" : "warning-circle"}" aria-hidden="true"></i><span><b>${esc(v.accepted ? "Accepted" : "Sent back")}: ${esc(title(v))}${again}</b> ${esc(plainCheck(plainReason(v.reason)))}</span></li>`;
     })
     .join("");
   const d = out.change.decomposition;
@@ -110,10 +131,8 @@ export function photoResult(r: PhotoResult): string {
        ${out.words ? `<p class="summary-text">${esc(out.words.text)}</p>` : ""}
        <ul class="photo-split">${d.components.map((c) => `<li><span>${esc(LABELS[c.key] ?? c.key)}</span><span class="num">${usd(c.usd, true)}</span></li>`).join("")}</ul>`
     : `<p class="photo-msg">${esc(out.change.skipped ?? "The change could not be split.")}</p>`;
-  const error =
-    out.rate.possibleBillingErrorUsd !== null
-      ? `<p class="photo-msg">AEP Ohio's published tariff gives a total ${usd(Math.abs(out.rate.possibleBillingErrorUsd))} ${out.rate.possibleBillingErrorUsd > 0 ? "lower" : "higher"} than this bill for the same kWh. It is worth asking AEP Ohio about it.</p>`
-      : "";
+  const complaint = out.actions?.actions.find((a) => a.id === "puco_complaint" && a.status === "recommended");
+  const error = out.rate.possibleBillingErrorUsd !== null ? billGap(b, out.rate.possibleBillingErrorUsd, complaint) : "";
   return `
     <h3 class="photo-h">Read from your photo</h3>
     <dl class="photo-read">${read}</dl>
