@@ -1,7 +1,8 @@
 // Web server for Why So High: GET /api/demo runs Linda's demo through the same
 // agent pipeline as the CLI, POST /api/run runs one request (input_examples/),
 // POST /api/photo reads a bill photo with BillReader and explains it (GET says
-// whether this copy can), and the built page is served from web/dist.
+// whether this copy can), GET /api/events streams each SQL statement of a photo
+// to the page while it is read, and the built page is served from web/dist.
 //   npm run serve            (after npm run web:build)
 // Binds to 127.0.0.1 unless HOST says otherwise. Without .env it runs in SAMPLE_MODE.
 
@@ -13,6 +14,7 @@ import { readBillPhoto, SAMPLE_PHOTO } from "../src/billPhoto.ts";
 import { SampleMissError } from "../src/cache.ts";
 import { demoPayload, runLindaDemo, type DemoPayload } from "../src/demo.ts";
 import { InputError, parseRunInput } from "../src/input.ts";
+import { onLogEvent } from "../src/log.ts";
 import { runRequest } from "../src/runRequest.ts";
 import { createRuntime } from "../src/runtime.ts";
 
@@ -143,6 +145,8 @@ const PHOTO = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/;
 const MAGIC: Readonly<Record<string, readonly number[]>> = { jpeg: [0xff, 0xd8, 0xff], png: [0x89, 0x50, 0x4e, 0x47] };
 // One photo at a time: each one is a vision model call and a full run.
 let photoBusy = false;
+// The run ids of the photos being read; /api/events streams only their statements.
+const photoRuns = new Set<string>();
 
 /** POST /api/photo: { "image": "data:image/jpeg;base64,..." }. Same result shape as /api/run. */
 async function handlePhoto(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -182,6 +186,7 @@ async function handlePhoto(req: IncomingMessage, res: ServerResponse): Promise<v
     return;
   }
   photoBusy = true;
+  photoRuns.add(runtime.logger.runId);
   try {
     const result = await readBillPhoto(runtime, bytes, kind as "jpeg" | "png");
     if (result.status === "success") send(res, 200, JSON_TYPE, JSON.stringify(result));
@@ -191,7 +196,29 @@ async function handlePhoto(req: IncomingMessage, res: ServerResponse): Promise<v
     send(res, 503, JSON_TYPE, failure("SampleMode", SAMPLE_PHOTO_MESSAGE));
   } finally {
     photoBusy = false;
+    photoRuns.delete(runtime.logger.runId);
   }
+}
+
+// What the page shows of each statement while a run is going; nothing else of the log leaves the server.
+const STREAM_FIELDS = ["ts", "runId", "agent", "step", "source", "zetarisQueryId", "sql", "rowCount", "latencyMs", "failedQueryId", "reason"] as const;
+const STREAM_STEPS: ReadonlySet<string> = new Set(["sql", "sql_retry"]);
+const PING_MS = 15_000;
+
+/** GET /api/events: every SQL statement a photo's run sends to Zetaris from now on, as server-sent events. */
+function handleEvents(req: IncomingMessage, res: ServerResponse): void {
+  res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+  res.write(": open\n\n");
+  const stop = onLogEvent((record) => {
+    if (!STREAM_STEPS.has(String(record.step)) || !photoRuns.has(String(record.runId)) || res.writableEnded) return;
+    const picked = Object.fromEntries(STREAM_FIELDS.filter((k) => record[k] !== undefined).map((k) => [k, record[k]]));
+    res.write(`data: ${JSON.stringify(picked)}\n\n`);
+  });
+  const ping = setInterval(() => res.write(": ping\n\n"), PING_MS);
+  req.on("close", () => {
+    stop();
+    clearInterval(ping);
+  });
 }
 
 const server = createServer((req, res) => {
@@ -230,6 +257,10 @@ const server = createServer((req, res) => {
   }
   if (req.method !== "GET") {
     send(res, 405, "text/plain; charset=utf-8", "Method not allowed");
+    return;
+  }
+  if (path === "/api/events") {
+    handleEvents(req, res);
     return;
   }
   if (path === "/api/demo") {

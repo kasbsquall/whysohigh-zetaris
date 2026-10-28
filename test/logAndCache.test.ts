@@ -1,9 +1,9 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { cacheKey, fileCache, SampleMissError } from "../src/cache.ts";
-import { createRunLogger } from "../src/log.ts";
+import { createRunLogger, onLogEvent } from "../src/log.ts";
 
 const tmp = (): string => mkdtempSync(join(tmpdir(), "wsh-"));
 
@@ -23,6 +23,24 @@ describe("createRunLogger", () => {
     expect(lines).toHaveLength(2);
     expect(lines[0]).toEqual({ ts: "2026-10-22T12:00:00.000Z", runId: "run-1", agent: "BillReader", step: "extracted", kwh: 1184 });
     expect(echoed).toHaveLength(2);
+  });
+
+  it("hands each event to listeners until they stop, and a failing listener does not stop the run", () => {
+    const quiet = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const logger = createRunLogger({ dir: tmp(), runId: "run-2", clock: () => new Date("2026-10-28T12:00:00Z"), echo: () => {} });
+    const seen: unknown[] = [];
+    const stop = onLogEvent((record) => seen.push(record));
+    const stopBroken = onLogEvent(() => {
+      throw new Error("the page went away");
+    });
+    logger.log({ agent: "WeatherAnalyst", step: "sql", sql: "SELECT 1", rowCount: 1 });
+    stop();
+    stopBroken();
+    logger.log({ agent: "WeatherAnalyst", step: "sql", sql: "SELECT 2", rowCount: 1 });
+    quiet.mockRestore();
+
+    expect(seen).toEqual([{ ts: "2026-10-28T12:00:00.000Z", runId: "run-2", agent: "WeatherAnalyst", step: "sql", sql: "SELECT 1", rowCount: 1 }]);
+    expect(readFileSync(logger.file, "utf8").trim().split("\n")).toHaveLength(2);
   });
 });
 

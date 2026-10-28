@@ -24,6 +24,22 @@ export interface LoggerOptions {
   readonly echo?: (line: string) => void;
 }
 
+/** Receives every event as it is logged, from any run in this process. */
+export type LogListener = (record: Readonly<Record<string, unknown>>) => void;
+
+const listeners = new Set<LogListener>();
+
+/**
+ * Calls listener with every event logged from now on, so the web server can show
+ * a run's SQL on the page while it happens. Returns the function that stops it.
+ */
+export function onLogEvent(listener: LogListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 export function newRunId(clock: () => Date = () => new Date()): string {
   const stamp = clock().toISOString().replace(/[-:]/g, "").replace(/\..*$/, "");
   return `${stamp}-${randomUUID().slice(0, 8)}`;
@@ -40,9 +56,18 @@ export function createRunLogger(options: LoggerOptions = {}): RunLogger {
     runId,
     file,
     log(event: LogEvent): void {
-      const line = JSON.stringify({ ts: clock().toISOString(), runId, ...event });
+      const record = { ts: clock().toISOString(), runId, ...event };
+      const line = JSON.stringify(record);
       appendFileSync(file, `${line}\n`, "utf8");
       echo(line);
+      for (const listener of listeners) {
+        try {
+          listener(record);
+        } catch (error: unknown) {
+          // A page that stopped listening must not stop the run.
+          process.stderr.write(`Log listener failed: ${(error as Error).message}\n`);
+        }
+      }
     },
   };
 }

@@ -3,6 +3,7 @@
 
 import { BASE, STATIC_DEMO } from "./env.ts";
 import { esc, usd } from "./format.ts";
+import { liveQueries } from "./live.ts";
 
 const MAX_SIDE = 1600;
 const QUALITY = 0.85;
@@ -144,11 +145,15 @@ export function wirePhoto(): void {
   document.getElementById("photoClose")?.addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => open.focus());
   const sample = document.getElementById("photoSample") as HTMLButtonElement | null;
+  // The online copy replays a file and sends no queries, so it has no live list.
+  const liveRoot = document.getElementById("photoLive");
+  const live = liveRoot && !STATIC_DEMO ? liveQueries(liveRoot) : null;
   const show = async (waiting: string, ask: () => Promise<Response>, figure: string): Promise<void> => {
     result.innerHTML = "";
     status.textContent = waiting;
     input.disabled = true;
     if (sample) sample.disabled = true;
+    live?.start();
     try {
       const res = await ask();
       const body = (await res.json()) as PhotoResult;
@@ -158,6 +163,7 @@ export function wirePhoto(): void {
       status.textContent = "";
       result.innerHTML = `<p class="photo-msg">The photo could not be sent. Check the connection and try again.</p>`;
     } finally {
+      live?.stop();
       input.disabled = pick?.hasAttribute("hidden") ?? false;
       if (sample) sample.disabled = false;
       input.value = "";
