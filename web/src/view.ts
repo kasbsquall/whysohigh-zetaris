@@ -852,7 +852,13 @@ export function evidence(run: RunView, weather: DemoWeather): string {
             "ev-join",
             "Your bills joined with Columbus weather",
             "database",
-            `<p>One federated SQL query in Zetaris joins <code translate="no">household_pg.bills</code> with the daily weather of NOAA (the US weather service) for station <code translate="no">${esc(weather.station)}</code>, John Glenn Columbus International Airport.</p><pre class="sql"><code translate="no">${esc(e.weatherSql)}</code></pre>`,
+            e.weatherSql.includes("lightning.metastore.")
+              ? `<p>Your bills and their weather come from a semantic layer in Zetaris, <code translate="no">lightning.metastore.whysohigh.billing</code>. Its <code translate="no">bill_weather</code> table joins <code translate="no">household_pg.bills</code> with the daily weather of NOAA (the US weather service) for station <code translate="no">${esc(weather.station)}</code>, John Glenn Columbus International Airport.</p><pre class="sql"><code translate="no">${esc(e.weatherSql)}</code></pre>${
+                  e.weatherRuleSql
+                    ? `<p>Before splitting the change, ${esc(agentName("ReconciliationCritic").toLowerCase())} asks Zetaris which bills its data-quality rule <code translate="no">weather_covers_bill</code> rejects: a bill must have weather for every day it covers.</p><pre class="sql"><code translate="no">${esc(e.weatherRuleSql)}</code></pre>`
+                    : ""
+                }`
+              : `<p>One federated SQL query in Zetaris joins <code translate="no">household_pg.bills</code> with the daily weather of NOAA (the US weather service) for station <code translate="no">${esc(weather.station)}</code>, John Glenn Columbus International Airport.</p><pre class="sql"><code translate="no">${esc(e.weatherSql)}</code></pre>`,
           )
         : ""
     }

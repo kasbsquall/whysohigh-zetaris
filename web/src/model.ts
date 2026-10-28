@@ -106,7 +106,10 @@ export interface ModelCall {
 }
 
 export interface Evidence {
+  /** How the bills and their weather were read: the semantic layer, or the plain federated join. */
   readonly weatherSql: string | null;
+  /** The checker's question to Zetaris's weather rule, when the bills came through the semantic layer. */
+  readonly weatherRuleSql: string | null;
   readonly tariffSql: string | null;
   /** The decision written back to the household record through Zetaris, and the read that confirmed it. */
   readonly decisionSql: string | null;
@@ -321,8 +324,12 @@ function evidenceFrom(run: DemoPayloadRun): Evidence {
   const orchestrator = run.trace.filter((t) => t.agent === "Orchestrator" && t.step === "sql").map((t) => String(t.sql));
   const receiptOf = (t: LogEvent): Record<string, unknown> => (t.receipt && typeof t.receipt === "object" ? (t.receipt as Record<string, unknown>) : {});
   const text = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
+  const statement = (test: (sql: string) => boolean): string | null =>
+    (run.trace.find((t) => t.step === "sql" && test(String(t.sql)))?.sql as string | undefined) ?? null;
   return {
-    weatherSql: sqlOf("WeatherAnalyst"),
+    // The first WeatherAnalyst statement may only ask whether the semantic layer exists.
+    weatherSql: statement((q) => /\b(bill_weather|noaa_ncei)\b/.test(q)),
+    weatherRuleSql: statement((q) => /^SHOW DQ INVALID RECORD\b/.test(q)),
     tariffSql: sqlOf(TARIFF_AGENT),
     decisionSql: orchestrator.find((q) => q.startsWith("INSERT")) ?? null,
     decisionReadSql: orchestrator.find((q) => q.startsWith("SELECT run_key")) ?? null,

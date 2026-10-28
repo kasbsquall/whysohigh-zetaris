@@ -81,6 +81,31 @@ describe("page view from the demo runs", () => {
     const raw = JSON.stringify(payload);
     expect(raw).not.toMatch(/logFile|\.jsonl|samples\//);
     expect(page.first.evidence.weatherSql).toMatch(/household_pg\.bills b LEFT JOIN noaa_ncei\.cmh_daily/);
+    expect(page.first.evidence.weatherRuleSql).toBeNull();
+  });
+
+  it("shows the semantic-layer read and the weather rule, not the check for the layer, when the bills came through Zetaris's layer", () => {
+    const usl = "SELECT period_start, period_end, days, kwh, weather_days, cdd, hdd FROM lightning.metastore.whysohigh.billing.bill_weather WHERE household_id = 'linda' ORDER BY period_start";
+    const rule = "SHOW DQ INVALID RECORD weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather";
+    const viaLayer: DemoPayload = {
+      ...payload,
+      runs: payload.runs.map((run) => ({
+        ...run,
+        trace: [
+          { agent: "WeatherAnalyst", step: "sql", sql: "SHOW NAMESPACES OR TABLES IN lightning.metastore.whysohigh" },
+          { agent: "WeatherAnalyst", step: "sql", sql: usl },
+          { agent: "ReconciliationCritic", step: "sql", sql: "LIST DQ USL lightning.metastore.whysohigh.billing" },
+          { agent: "ReconciliationCritic", step: "sql", sql: rule },
+          ...run.trace.filter((t) => !(t.agent === "WeatherAnalyst" && t.step === "sql")),
+        ],
+      })),
+    };
+    const view = pageView(viaLayer);
+    expect(view.first.evidence.weatherSql).toBe(usl);
+    expect(view.first.evidence.weatherRuleSql).toBe(rule);
+    const html = panel(view, "first", true, "2026-10-24");
+    expect(html).toContain("a semantic layer in Zetaris");
+    expect(html).toContain("weather_covers_bill");
   });
 
   it("labels the closing coupon with RateAnalyst's recomputation, not the billed total", () => {
