@@ -1,7 +1,7 @@
 // Web server for Why So High: GET /api/demo runs Linda's demo through the same
 // agent pipeline as the CLI, POST /api/run runs one request (input_examples/),
 // POST /api/photo reads a bill photo with BillReader and explains it (GET says
-// whether this copy can), GET /api/events streams each SQL statement of a photo
+// whether this copy can), GET /api/events streams each SQL statement of a photo or of the demo
 // to the page while it is read, and the built page is served from web/dist.
 //   npm run serve            (after npm run web:build)
 // Binds to 127.0.0.1 unless HOST says otherwise. Without .env it runs in SAMPLE_MODE.
@@ -34,15 +34,21 @@ const TYPES: Readonly<Record<string, string>> = {
 
 /** The demo runs once per server process; every request reads the same result. */
 let demo: Promise<DemoPayload> | null = null;
+// While the demo runs, /api/events?for=demo streams its statements.
+let demoRunning = false;
 const SAMPLE_PHOTO_MESSAGE =
   "Reading a new photo needs the live models. This copy of the page replays recorded runs, so it can show the sample photo but cannot read a new one. To read your own bill, run Why So High with its models (README, Run it live).";
 
 const loadDemo = (): Promise<DemoPayload> => {
+  if (!demo) demoRunning = true;
   demo ??= runLindaDemo(join(mkdtempSync(join(tmpdir(), "wsh-web-")), "memory"))
     .then(demoPayload)
     .catch((error: unknown) => {
       demo = null;
       throw error;
+    })
+    .finally(() => {
+      demoRunning = false;
     });
   return demo;
 };
@@ -201,16 +207,22 @@ async function handlePhoto(req: IncomingMessage, res: ServerResponse): Promise<v
 }
 
 // What the page shows of each statement while a run is going; nothing else of the log leaves the server.
-const STREAM_FIELDS = ["ts", "runId", "agent", "step", "source", "zetarisQueryId", "sql", "rowCount", "latencyMs", "failedQueryId", "reason"] as const;
-const STREAM_STEPS: ReadonlySet<string> = new Set(["sql", "sql_retry"]);
+const STREAM_FIELDS = ["ts", "runId", "agent", "step", "source", "zetarisQueryId", "sql", "rowCount", "latencyMs", "failedQueryId", "waitMs", "reason"] as const;
+const STREAM_STEPS: ReadonlySet<string> = new Set(["sql", "sql_retry", "context_unavailable"]);
 const PING_MS = 15_000;
 
-/** GET /api/events: every SQL statement a photo's run sends to Zetaris from now on, as server-sent events. */
+/**
+ * GET /api/events?for=photo|demo: every SQL statement that a photo's run, or the demo
+ * while it runs, sends to Zetaris from now on, and any source the run has to go on
+ * without, as server-sent events.
+ */
 function handleEvents(req: IncomingMessage, res: ServerResponse): void {
+  const forDemo = new URL(req.url ?? "/", "http://localhost").searchParams.get("for") === "demo";
+  const wanted = (runId: string): boolean => (forDemo ? demoRunning && !photoRuns.has(runId) : photoRuns.has(runId));
   res.writeHead(200, { "content-type": "text/event-stream; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
   res.write(": open\n\n");
   const stop = onLogEvent((record) => {
-    if (!STREAM_STEPS.has(String(record.step)) || !photoRuns.has(String(record.runId)) || res.writableEnded) return;
+    if (!STREAM_STEPS.has(String(record.step)) || !wanted(String(record.runId)) || res.writableEnded) return;
     const picked = Object.fromEntries(STREAM_FIELDS.filter((k) => record[k] !== undefined).map((k) => [k, record[k]]));
     res.write(`data: ${JSON.stringify(picked)}\n\n`);
   });

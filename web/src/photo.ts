@@ -147,7 +147,7 @@ export function wirePhoto(): void {
   const sample = document.getElementById("photoSample") as HTMLButtonElement | null;
   // The online copy replays a file and sends no queries, so it has no live list.
   const liveRoot = document.getElementById("photoLive");
-  const live = liveRoot && !STATIC_DEMO ? liveQueries(liveRoot) : null;
+  const live = liveRoot && !STATIC_DEMO ? liveQueries(liveRoot, { stream: "/api/events?for=photo" }) : null;
   const show = async (waiting: string, ask: () => Promise<Response>, figure: string): Promise<void> => {
     result.innerHTML = "";
     status.textContent = waiting;

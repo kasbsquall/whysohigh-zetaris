@@ -14,6 +14,8 @@ interface StatementEvent {
   readonly rowCount?: number;
   readonly latencyMs?: number;
   readonly reason?: string;
+  readonly waitMs?: number;
+  readonly failedQueryId?: string;
 }
 
 /** Where each table lives, in the page's words, with its icon. The first match per pattern wins. */
@@ -30,6 +32,26 @@ const SOURCE_NOTE: Readonly<Record<string, string>> = {
   sample: "replayed from a recorded run",
   snapshot: "computed from saved public data",
 };
+
+// Zetaris passes on an outside API's refusal with that API's URL (keys already redacted).
+const APIS: readonly (readonly [RegExp, string])[] = [
+  [/\/\/api\.eia\.gov\//i, "EIA"],
+  [/\/\/api\.openei\.org\//i, "OpenEI"],
+  [/\/\/(?:www\.)?ncei\.noaa\.gov\//i, "NOAA"],
+];
+const HTTP_WORDS: Readonly<Record<string, string>> = { "401": "key refused", "403": "access refused", "429": "too many requests" };
+
+/** What a run does without when that source stays unavailable. */
+const LEFT_OUT: Readonly<Record<string, string>> = { eia: "the Ohio average price from EIA" };
+
+/** "EIA answered HTTP 429, too many requests", or null when the reason names no known API. */
+export function refusal(reason: string | undefined): string | null {
+  const match = /response code: (\d{3}) for URL: (\S+)/i.exec(reason ?? "");
+  const api = match ? APIS.find(([pattern]) => pattern.test(match[2]))?.[1] : undefined;
+  if (!match || !api) return null;
+  const words = HTTP_WORDS[match[1]] ?? (match[1].startsWith("5") ? "server error" : "");
+  return `${api} answered HTTP ${match[1]}${words ? `, ${words}` : ""}`;
+}
 
 // The last statements are logged just before the answer is sent; wait for them.
 const CLOSE_AFTER_MS = 1_500;
@@ -57,7 +79,16 @@ function sourcesOf(sql: string): string {
 export function statementRow(e: StatementEvent, atMs: number): string {
   const at = `<span class="zt num">+${(atMs / 1000).toFixed(1)} s</span>`;
   if (e.step === "sql_retry") {
-    return `<li class="zrow zretry">${at}<span class="zmain"><b>${esc(who(e.agent))}</b><span class="zline">Zetaris turned this statement down once, so it was sent again.</span></span></li>`;
+    const cause = refusal(e.reason);
+    const again = `so it was sent again${e.waitMs ? ` after ${elapsed(e.waitMs)}` : ""}.`;
+    const text = cause ? `${cause}. Zetaris passed that on, ${again}` : `Zetaris turned this statement down once, ${again}`;
+    const failed = e.failedQueryId ? ` <span class="zfail">Failed Zetaris query <code translate="no">${esc(e.failedQueryId.slice(0, 8))}</code></span>` : "";
+    return `<li class="zrow zretry">${at}<span class="zmain"><b>${esc(who(e.agent))}</b><span class="zline">${esc(text)}${failed}</span></span></li>`;
+  }
+  if (e.step === "context_unavailable") {
+    const cause = refusal(e.reason);
+    const text = `This run goes on without ${LEFT_OUT[e.source ?? ""] ?? "one of its sources"}${cause ? `, because ${cause}` : ""}.`;
+    return `<li class="zrow zretry">${at}<span class="zmain"><b>${esc(who(e.agent))}</b><span class="zline">${esc(text)}</span></span></li>`;
   }
   const sql = e.sql ?? "";
   const note = e.source && SOURCE_NOTE[e.source] ? `<span class="znote">${esc(SOURCE_NOTE[e.source])}</span>` : "";
@@ -76,8 +107,15 @@ export interface LiveQueries {
   stop(): void;
 }
 
+export interface LiveOptions {
+  /** The server-sent events to listen to: /api/events?for=photo or ?for=demo. */
+  readonly stream: string;
+  /** Fold the list into its summary line once the run is over (root holds a details element). */
+  readonly foldWhenDone?: boolean;
+}
+
 /** Fills root's list with the statements of the run in progress. */
-export function liveQueries(root: HTMLElement): LiveQueries {
+export function liveQueries(root: HTMLElement, options: LiveOptions): LiveQueries {
   const list = root.querySelector<HTMLOListElement>(".zlist");
   const total = root.querySelector<HTMLElement>(".ztotal");
   let source: EventSource | null = null;
@@ -88,8 +126,9 @@ export function liveQueries(root: HTMLElement): LiveQueries {
     clearTimeout(closing);
     source?.close();
     source = null;
-    // A run that never reached Zetaris (a refused photo, for example) leaves no empty list behind.
+    // A run that never reached Zetaris (a refused photo, or a demo already worked out) leaves no empty list behind.
     if (count === 0) root.hidden = true;
+    else if (options.foldWhenDone) root.querySelector("details")?.removeAttribute("open");
   };
 
   return {
@@ -99,11 +138,12 @@ export function liveQueries(root: HTMLElement): LiveQueries {
       list.innerHTML = "";
       total.textContent = "Waiting for the first query…";
       root.hidden = false;
+      root.querySelector("details")?.setAttribute("open", "");
       const started = performance.now();
       count = 0;
       let rows = 0;
       let busyMs = 0;
-      source = new EventSource("/api/events");
+      source = new EventSource(options.stream);
       source.onmessage = (message: MessageEvent<string>): void => {
         const e = JSON.parse(message.data) as StatementEvent;
         list.insertAdjacentHTML("beforeend", statementRow(e, performance.now() - started));

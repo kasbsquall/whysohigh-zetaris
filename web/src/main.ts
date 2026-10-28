@@ -7,6 +7,7 @@ import type { DemoPayload } from "../../src/demo.ts";
 import { pageView, type PageView } from "./model.ts";
 import { failure, friendlyError, panel, parseHash, skeleton, stripHint, tabKey, tabWhen, todayInOhio, type Tab } from "./view.ts";
 import { wirePhoto } from "./photo.ts";
+import { liveQueries } from "./live.ts";
 
 interface State {
   readonly tab: Tab;
@@ -302,10 +303,17 @@ async function load(): Promise<void> {
     }
   });
 
+  // Live, the server works the demo out on the first visit: the list shows each query meanwhile,
+  // then folds into one line under the explanation. A demo already worked out sends no queries.
+  const liveRoot = document.getElementById("demoLive");
+  const live = liveRoot && !STATIC_DEMO ? liveQueries(liveRoot, { stream: "/api/events?for=demo", foldWhenDone: true }) : null;
+
   const start = async (fromRetry: boolean): Promise<void> => {
     setTabsReady(false);
     $("page").setAttribute("aria-busy", "true");
     $("panel").innerHTML = skeleton();
+    if (liveRoot) $("page").prepend(liveRoot);
+    live?.start();
     try {
       const res = await fetch(STATIC_DEMO ? `${BASE}demo.json` : "/api/demo");
       const body = (await res.json().catch(() => null)) as DemoPayload | { error: string } | null;
@@ -327,6 +335,9 @@ async function load(): Promise<void> {
       const retry = $("retry");
       retry.addEventListener("click", () => void start(true));
       retry.focus();
+    } finally {
+      live?.stop();
+      if (liveRoot && page) $("page").append(liveRoot);
     }
   };
   await start(false);

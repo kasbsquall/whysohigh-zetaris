@@ -126,6 +126,18 @@ code{font-family:var(--font-mono); font-size:1em; color:var(--ink); overflow-wra
 .zsql pre.sql{font-size:13px; padding:var(--s3); margin-top:var(--s1)}
 .zid{color:var(--ink-2)}
 .zretry b{color:var(--reject-ink)}
+.zfail{font-size:14px; color:var(--ink-2)}
+/* On the page: open while the demo is worked out, then folded into one line under the explanation. */
+.zlive-page{margin-top:var(--s5); margin-bottom:var(--s5)}
+.zlive-page summary{position:relative; display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--s1) var(--s3); cursor:pointer; list-style:none; min-height:44px; padding:var(--s2) 36px var(--s2) 0}
+.zlive-page summary::-webkit-details-marker{display:none}
+.zlive-page summary:focus-visible{outline:2px solid var(--service); outline-offset:2px; border-radius:var(--radius)}
+.zlive-title{display:inline-flex; align-items:center; gap:var(--s2); font:700 20px/1.3 var(--font-display); color:var(--ink)}
+.zlive-title i{font-size:22px; color:var(--service)}
+.zlive-page .ztotal{margin-top:0}
+.zchev{position:absolute; right:0; top:calc(var(--s2) + 5px); font-size:20px; color:var(--ink-2); transition:transform 180ms var(--ease-out)}
+.zlive-page details[open] .zchev{transform:rotate(180deg)}
+.zlive-page summary:hover .zlive-title{color:var(--link)}
 .tabs{display:flex; gap:var(--s2); margin-top:var(--s1)}
 .tab{appearance:none; background:none; border:0; cursor:pointer; color:var(--on-service-2);
   font:500 17px/1 var(--font-display); padding:14px 14px 15px; min-height:48px; display:inline-flex; gap:8px; align-items:center;
