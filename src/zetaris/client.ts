@@ -80,6 +80,11 @@ export function createZetarisRest(config: Config["zetaris"], fetchImpl: typeof f
 
   /** queryId is the id Zetaris keeps for the statement in its query history; the run log records it. */
   async function run(sql: string, limit = 1000, queryId: string = randomUUID()): Promise<readonly Row[]> {
+    return (await query(sql, limit, queryId)).rows;
+  }
+
+  /** The whole answer: column names, rows, and the time Zetaris says the statement took. */
+  async function query(sql: string, limit = 1000, queryId: string = randomUUID()): Promise<Answer> {
     token ??= await login();
     let response = await post(sql, limit, token, queryId);
     if (response.status === 401) {
@@ -92,11 +97,21 @@ export function createZetarisRest(config: Config["zetaris"], fetchImpl: typeof f
       const detail = config.password ? raw.replaceAll(config.password, "[redacted]") : raw;
       throw new ZetarisError(`Zetaris HTTP ${response.status}: ${detail}`);
     }
-    const body = (await response.json()) as { data?: unknown } | null;
-    return normalizeRows(body?.data);
+    const body = (await response.json()) as { headers?: unknown; data?: unknown; timeUsed?: unknown } | null;
+    return {
+      headers: Array.isArray(body?.headers) ? body.headers.map(String) : [],
+      rows: normalizeRows(body?.data),
+      timeUsedMs: typeof body?.timeUsed === "number" ? body.timeUsed : null,
+    };
   }
 
-  return { run };
+  return { run, query };
+}
+
+export interface Answer {
+  readonly headers: readonly string[];
+  readonly rows: readonly Row[];
+  readonly timeUsedMs: number | null;
 }
 
 export interface SqlDeps {

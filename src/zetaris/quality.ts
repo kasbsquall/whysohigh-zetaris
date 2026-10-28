@@ -45,6 +45,9 @@ export function findWeatherRule(rows: readonly Row[]): { readonly name: string; 
 export function failingPeriods(rows: readonly Row[], householdId: string): ReadonlySet<string> {
   const odd = rows.find((r) => r.length !== BILL_WEATHER_COLUMNS);
   if (odd) throw new Error(`SHOW DQ INVALID RECORD returned ${odd.length} columns; bill_weather has ${BILL_WEATHER_COLUMNS}.`);
+  // bill_id is household_id:period_start, which also confirms the column order.
+  const shuffled = rows.find((r) => r[0] !== `${r[HOUSEHOLD_COLUMN]}:${r[PERIOD_START_COLUMN]}`);
+  if (shuffled) throw new Error(`bill_weather's columns are not in the expected order: bill_id ${shuffled[0]}.`);
   return new Set(rows.filter((r) => r[HOUSEHOLD_COLUMN] === householdId).map((r) => r[PERIOD_START_COLUMN]));
 }
 

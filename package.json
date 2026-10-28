@@ -13,6 +13,7 @@
     "doctor": "tsx cli/doctor.ts",
     "db:up": "docker compose --env-file .env -f infra/household-db/docker-compose.yml up -d",
     "setup:sources": "tsx cli/setup-sources.ts",
+    "zsql": "tsx cli/zsql.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "conformance:hmem": "tsx engines/hmem/conformance/runner.ts",

@@ -61,6 +61,8 @@ describe("the semantic layer and its weather rule", () => {
     expect([...failingPeriods(INVALID, "marcus")]).toEqual(["2026-09-26"]);
     expect([...failingPeriods(INVALID, "linda")]).toEqual([]);
     expect(() => failingPeriods([["{\"records\":[]}"]], "marcus")).toThrow(/1 columns/);
+    const shuffled = [["marcus", "marcus:2026-09-26", "2026-09-26", "2026-10-27", "31", "690.0", "26", "60.5", "75.0"]];
+    expect(() => failingPeriods(shuffled, "marcus")).toThrow(/expected order/);
   });
 });
 
