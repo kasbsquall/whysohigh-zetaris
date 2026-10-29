@@ -4,6 +4,15 @@ Snap your electricity bill. Why So High tells you why it went up and what you ca
 
 Built for the Open Agent Hackathon 2026, Track 03 (Reasoning Architecture). Scope: AEP Ohio residential customers in Columbus, Ohio.
 
+## Zetaris Demo Challenge
+
+This repository is the Zetaris Demo Challenge version of Why So High. The hackathon submission stays unchanged at [github.com/kasbsquall/whysohigh](https://github.com/kasbsquall/whysohigh); this copy adds the work done for the challenge on Oct 29, 2026:
+
+- **A semantic layer and a data-quality rule built by Cursor's agent on SpaceXAI's Grok 4.7.** [zetaris/billing_usl.sql](zetaris/billing_usl.sql) is the file the agent wrote and ran: the `billing` USL with `household` and `bill_weather`, and the rules `weather_covers_bill` (`weather_days = days`) and `billing_days_normal`. The prompt it was given is [zetaris/prompts/task-1-lean.md](zetaris/prompts/task-1-lean.md). Its terminal at the end of the session and the Zetaris query history of each statement it ran (ids 37912d69, a86056a2, 888e89d2, 5d3faf24, 346f59a1, 49c2052a) are in [zetaris/agent-sessions/](zetaris/agent-sessions/). The agent also read our own probe script, `scripts/_probe-usl.ts`, during the session. Cursor's weekly usage limit stopped it while it wrote its report, after every statement had run.
+- **The app reads that layer and rule.** The checker asks Zetaris for `weather_covers_bill` before it splits a bill, and holds a bill whose weather NOAA has not finished publishing (Marcus's October bill: 29 of 30 days). See `src/zetaris/quality.ts` and `src/held.ts`.
+- **One statement, four sources.** [zetaris/four_sources.sql](zetaris/four_sources.sql) joins Linda's bills in Postgres (JDBC) with NOAA daily weather, the AEP Ohio tariff from OpenEI URDB and Ohio's average price from EIA (REST). It was written with Claude Code.
+- **A safe SQL entry point for coding agents:** `npm run zsql -- "<statement>"`, `--file`, `--dry-run` and `--history <id>` to read Zetaris's own query history (`cli/zsql.ts`, rules in [AGENTS.md](AGENTS.md)).
+
 **Demo video (2:50):** https://youtu.be/1CA6gYeeOUw
 
 **Try it in the browser, no install:** https://kasbsquall.github.io/whysohigh/ (sample mode: the page replays the recorded live run; reading your own photo needs the live models)
