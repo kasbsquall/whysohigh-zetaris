@@ -105,6 +105,13 @@ describe("the held bill on the page", () => {
     expect(page).toContain("NOAA has published Columbus weather for 25 of this bill’s 30 days");
   });
 
+  it("speaks of the last day when only one is missing", () => {
+    const one = explanation({ rule: RULE });
+    const history = one.history.map((b, i) => (i === 1 ? { ...b, weatherDays: 29 } : b));
+    const view = heldView(heldPayload({ ...one, history } as Explanation, MARCUS, { runId: "r3", sampleMode: false }, QUERIES));
+    expect(view).toContain("NOAA has published Columbus weather for 29 of this bill’s 30 days. Without the last one, the weather share of the change would be a guess, so the split waits until NOAA has it.");
+  });
+
   it("names the rule in Zetaris and the query that checked it", () => {
     expect(page).toContain("<code translate=\"no\">weather_covers_bill</code>");
     expect(page).toContain("<code translate=\"no\">weather_days = days</code>");

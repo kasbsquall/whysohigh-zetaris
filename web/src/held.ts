@@ -41,7 +41,7 @@ export function heldView(p: HeldPayload): string {
       : `<span class="hl-line">Your ${esc(month)} bill</span>`;
   const why =
     p.held && coverage
-      ? `NOAA has published Columbus weather for ${coverage.weatherDays} of this bill’s ${coverage.days} days. Without the other ${missing}, the weather share of the change would be a guess, so the split waits until NOAA has them.`
+      ? `NOAA has published Columbus weather for ${coverage.weatherDays} of this bill’s ${coverage.days} days. Without ${missing === 1 ? "the last one" : `the other ${missing}`}, the weather share of the change would be a guess, so the split waits until NOAA has ${missing === 1 ? "it" : "them"}.`
       : p.held
         ? `The change is not split yet: ${p.held}`
         : `NOAA now has every day of this bill, so nothing is on hold.`;
