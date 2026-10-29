@@ -1,0 +1,24 @@
+# Zetaris query history for the six queries the agents ran on Linda's September bill
+# in the live run recorded on Oct 29, 2026 at 15:08 Lima (before Cursor's agent rebuilt the layer at 16:21).
+# Read back on Oct 29, 2026 with: npm run zsql -- --history ee9e6fa7 da947dda 78fd14b6 4fd84aab 49cddd4e 75d0bb9e
+
+-- What Zetaris recorded in its query history for each id
+
+ee9e6fa7-bd6d-4cc5-b7af-11c695069e63  Success  2026-10-29 20:08:24 UTC (15:08:24 America/Lima)
+  SHOW NAMESPACES OR TABLES IN lightning.metastore.whysohigh
+
+da947dda-2a75-461c-94de-bd47dc2293cd  Success  2026-10-29 20:08:24 UTC (15:08:24 America/Lima)
+  SELECT period_start, period_end, days, kwh, weather_days, cdd, hdd FROM lightning.metastore.whysohigh.billing.bill_weather WHERE household_id = 'linda' ORDER BY period_start
+
+78fd14b6-ce86-4126-9500-a48af626e7c5  Success  2026-10-29 20:08:26 UTC (15:08:26 America/Lima)
+  LIST DQ USL lightning.metastore.whysohigh.billing
+
+4fd84aab-8be6-4581-8f2b-14e2922e48c0  Success  2026-10-29 20:08:26 UTC (15:08:26 America/Lima)
+  SHOW DQ INVALID RECORD weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather
+
+49cddd4e-0dd1-446a-b538-abe708c32ed5  Success  2026-10-29 20:08:29 UTC (15:08:29 America/Lima)
+  SELECT t.label, t.name, t.startdate, t.enddate, t.approved, t.fixedchargefirstmeter, t.fixedchargeunits, to_json(t.energyratestructure), to_json(t.energyweekdayschedule[0]), to_json(t.energyweekendschedule[0]) FROM openei_urdb.aep_ohio_residential LATERAL VIEW explode(items) AS t WHERE t.name = 'Residential Service Bundled Ohio Power Rate Zone (RS)' ORDER BY t.startdate
+
+75d0bb9e-03c8-4823-8fc0-b9beefd0fed0  Success  2026-10-29 20:08:29 UTC (15:08:29 America/Lima)
+  SELECT d.period, d.price FROM eia_api.oh_res_monthly LATERAL VIEW explode(response.data) t AS d WHERE d.period <= '2026-09' ORDER BY d.period DESC LIMIT 1
+
