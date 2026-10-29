@@ -1,0 +1,58 @@
+
+> whysohigh@0.1.0 zsql
+> tsx cli/zsql.ts --history f5cba8cc 37912d69 a86056a2 888e89d2 5d3faf24 346f59a1 49c2052a
+
+-- What Zetaris recorded in its query history for each id
+
+f5cba8cc-25fe-46af-bccd-f0f345a23d0a  Success  2026-10-29 21:26:25 UTC (16:26:25 America/Lima)
+  SHOW DQ INVALID RECORD weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather
+
+37912d69-bc67-491b-a241-87f5831e81ef  Success  2026-10-29 21:21:11 UTC (16:21:11 America/Lima)
+  COMPILE USL billing DEPLOY NAMESPACE lightning.metastore.whysohigh DDL
+  CREATE TABLE household (
+    household_id varchar(64) NOT NULL PRIMARY KEY,
+    city varchar(64),
+    noaa_station varchar(32),
+    household_size int
+  );
+  CREATE TABLE bill_weather (
+    bill_id varchar(96) NOT NULL PRIMARY KEY,
+    household_id varchar(64) FOREIGN KEY REFERENCES household(household_id),
+    period_start date,
+    period_end date,
+    days int,
+    kwh double,
+    weather_days int,
+    cdd double,
+    hdd double
+  )
+
+a86056a2-e9ac-4512-b863-887a81eca022  Success  2026-10-29 21:21:11 UTC (16:21:11 America/Lima)
+  ACTIVATE USL TABLE lightning.metastore.whysohigh.billing.bill_weather AS
+  SELECT COALESCE(concat(b.household_id, ********) AS bill_id,
+    b.household_id,
+    b.period_start,
+    b.period_end,
+    b.days,
+    CAST(b.kwh AS DOUBLE) AS kwh,
+    CAST(count(CAST(w.TMAX AS DOUBLE) + CAST(w.TMIN AS DOUBLE)) AS INT) AS weather_days,
+    CAST(coalesce(round(sum(greatest((CAST(w.TMAX AS DOUBLE) + CAST(w.TMIN AS DOUBLE)) / 2 - 65, 0)), 1), 0) AS DOUBLE) AS cdd,
+    CAST(coalesce(round(sum(greatest(65 - (CAST(w.TMAX AS DOUBLE) + CAST(w.TMIN AS DOUBLE)) / 2, 0)), 1), 0) AS DOUBLE) AS hdd
+  FROM household_pg.bills b
+  LEFT JOIN noaa_ncei.cmh_daily_from_2024 w
+    ON to_date(w.DATE) >= b.period_start AND to_date(w.DATE) < b.period_end
+  GROUP BY b.household_id, b.period_start, b.period_end, b.days, b.kwh
+
+888e89d2-fbd4-4975-8c8c-1814ac67af7b  Success  2026-10-29 21:21:12 UTC (16:21:12 America/Lima)
+  REGISTER DQ weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather AS
+  weather_days = days
+
+5d3faf24-ade6-4b17-95f3-488b24c16b62  Success  2026-10-29 21:21:30 UTC (16:21:30 America/Lima)
+  RUN DQ weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather
+
+346f59a1-106b-4e23-bfb6-9401fae9a0c2  Success  2026-10-29 21:21:45 UTC (16:21:45 America/Lima)
+  SHOW DQ INVALID RECORD weather_covers_bill TABLE lightning.metastore.whysohigh.billing.bill_weather
+
+49c2052a-6e3b-43d1-9608-6aa33b1fcb98  Success  2026-10-29 21:21:46 UTC (16:21:46 America/Lima)
+  SELECT bill_id, period_start, period_end, days, kwh, weather_days, cdd, hdd FROM lightning.metastore.whysohigh.billing.bill_weather WHERE household_id = 'linda' ORDER BY period_start
+
