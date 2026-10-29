@@ -5,11 +5,11 @@ import { isAlreadyRegistered, redactSecrets, sourceStatements } from "../src/zet
 const secrets = { openeiApiKey: "openei-key-123", eiaApiKey: "eia-key-456", householdDbPassword: "pg-pass-789" };
 
 describe("sourceStatements", () => {
-  const statements = sourceStatements(secrets, "2026-10-22");
+  const statements = sourceStatements(secrets);
 
   it("registers every source the analysts join", () => {
     expect(new Set(statements.map((s) => s.source))).toEqual(new Set(["noaa", "urdb", "eia", "household"]));
-    expect(statements.find((s) => s.sql.includes("cmh_daily"))?.sql).toContain("endDate=2026-10-22");
+    expect(statements.find((s) => s.sql.includes("cmh_daily"))?.sql).toContain("endDate=2027-12-31");
   });
 
   it("puts the secrets in the SQL and redaction removes all of them", () => {

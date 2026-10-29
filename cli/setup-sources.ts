@@ -23,10 +23,9 @@ const secrets: SourceSecrets = {
 };
 
 const zetaris = createZetarisRest(config.zetaris);
-const today = new Date().toISOString().slice(0, 10);
 let failed = 0;
 
-for (const { source, sql } of sourceStatements(secrets, today)) {
+for (const { source, sql } of sourceStatements(secrets)) {
   const shown = redactSecrets(sql, secrets).slice(0, 140);
   try {
     await zetaris.run(sql);

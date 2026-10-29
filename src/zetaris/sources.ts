@@ -20,15 +20,18 @@ export const AEP_OHIO_EIAID = 14006;
 export const CMH_STATION = "USW00014821";
 // From 2024 so the evaluation households have a year of history before each tariff version.
 const WEATHER_START = "2024-01-01";
+// A date ahead of today: NOAA returns every day published so far. Registering with the day of
+// registration froze the table at 2026-10-22.
+const WEATHER_END = "2027-12-31";
 
 const rest = (table: string, db: string, endpoint: string): string =>
   `CREATE LIGHTNING REST TABLE ${table} FROM ${db} REQUEST(endpoint "${endpoint}", ` +
   `method "get", response_type "json", http_encoding "URLENCODED") HEADER () BODY ()`;
 
-export function sourceStatements(secrets: SourceSecrets, today: string): readonly SourceStatement[] {
+export function sourceStatements(secrets: SourceSecrets): readonly SourceStatement[] {
   const noaa =
     "https://www.ncei.noaa.gov/access/services/data/v1?dataset=daily-summaries" +
-    `&stations=${CMH_STATION}&startDate=${WEATHER_START}&endDate=${today}&dataTypes=TMAX,TMIN&units=standard&format=json`;
+    `&stations=${CMH_STATION}&startDate=${WEATHER_START}&endDate=${WEATHER_END}&dataTypes=TMAX,TMIN&units=standard&format=json`;
   const urdb =
     `https://api.openei.org/utility_rates?version=8&format=json&api_key=${secrets.openeiApiKey}` +
     `&eia=${AEP_OHIO_EIAID}&sector=Residential&detail=full&limit=20&orderby=startdate&direction=desc`;
